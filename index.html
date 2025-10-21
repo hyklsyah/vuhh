@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AQUAMONITOR | Sistem Monitoring Bendungan Lempake</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        .water-animation {
+            background: linear-gradient(0deg, #48a3ff 0%, #0064c9 100%);
+            animation: wave 5s ease-in-out infinite;
+            border-radius: 0 0 8px 8px;
+            transition: height 1s ease-in-out;
+        }
+
+        @keyframes wave {
+            0%, 100% { transform: translate(0, -5px); }
+            50% { transform: translate(0, 5px); }
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .notification-badge {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .hero-bg {
+            background-image: url('/api/placeholder/1200/600');
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .hero-bg::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0,36,77,0.8) 0%, rgba(0,93,199,0.6) 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Navbar -->
+    <nav class="bg-blue-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-water text-2xl text-blue-300"></i>
+                    <span class="font-bold text-xl tracking-tight">AQUAMONITOR</span>
+                </div>
+                
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex space-x-8">
+                    <a href="#" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Dashboard</a>
+                    <a href="#status" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Status</a>
+                    <a href="#histori" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Histori</a>
+                    <a href="#about" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Tentang</a>
+                    
+                </div>
+                
+                <!-- Mobile menu button -->
+                <div class="md:hidden flex items-center">
+                    <button id="mobile-menu-button" class="outline-none">
+                        <i class="fas fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="hidden md:hidden pb-4 animate__animated animate__fadeIn">
+                <a href="#" class="block py-2 text-blue-200 hover:text-white font-medium">Dashboard</a>
+                <a href="#status" class="block py-2 text-blue-200 hover:text-white font-medium">Status</a>
+                <a href="#histori" class="block py-2 text-blue-200 hover:text-white font-medium">Histori</a>
+                <a href="#about" class="block py-2 text-blue-200 hover:text-white font-medium">Tentang</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-bg relative text-white py-20">
+        <div class="container mx-auto px-4 z-10 relative">
+            <div class="md:w-3/5">
+                <h1 class="text-3xl md:text-5xl font-bold mb-4 animate__animated animate__fadeInUp">Monitoring Ketinggian Air Bendungan Lempake</h1>
+                <p class="text-lg mb-8 text-blue-100 animate__animated animate__fadeInUp animate__delay-1s">Sistem peringatan dini berbasis IoT untuk memantau ketinggian air secara real-time dan mencegah risiko banjir di Samarinda.</p>
+                <div class="flex flex-wrap gap-4 animate__animated animate__fadeInUp animate__delay-2s">
+                    <a href="#status" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-full transition-colors duration-300 font-semibold inline-flex items-center">
+                        <i class="fas fa-tint mr-2"></i>
+                        Lihat Status Air
+                    </a>
+                    <a href="#" class="bg-transparent border-2 border-white hover:bg-white hover:text-blue-900 text-white py-2 px-6 rounded-full transition-colors duration-300 font-semibold inline-flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Pelajari Lebih Lanjut
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Alert Status -->
+    <div class="bg-blue-800 text-white py-3 shadow-md">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-circle text-yellow-300 mr-2 text-xl"></i>
+                    <span>Status Air Saat Ini:</span>
+                    <span id="status-level" class="ml-2 font-bold">NORMAL</span>
+                </div>
+                <div class="text-sm">
+                    <span id="last-update">Update Terakhir: 17 Mei 2025, 08:15 WIB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <section class="py-10">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Left Panel - Gauge & Status -->
+                <div class="md:w-1/3">
+                    <!-- Water Level Monitor -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Ketinggi Permukaan Air</h3>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Real-time</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="h-60 w-40 border-2 border-gray-300 rounded-lg relative mb-4">
+                                <div id="water-level" class="water-animation absolute bottom-0 left-0 right-0" style="height: 40%;"></div>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span id="water-percentage" class="text-3xl font-bold text-blue-900">40%</span>
+                                </div>
+                                <!-- Level Markers -->
+                                <div class="absolute top-1/4 -right-10 flex items-center">
+                                    <div class="h-px w-8 bg-red-500"></div>
+                                    <span class="text-xs ml-1 text-red-500">Bahaya</span>
+                                </div>
+                                <div class="absolute top-1/2 -right-10 flex items-center">
+                                    <div class="h-px w-8 bg-yellow-500"></div>
+                                    <span class="text-xs ml-1 text-yellow-500">Waspada</span>
+                                </div>
+                                <div class="absolute top-3/4 -right-10 flex items-center">
+                                    <div class="h-px w-8 bg-green-500"></div>
+                                    <span class="text-xs ml-1 text-green-500">Normal</span>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-gray-700">Ketinggian Saat Ini</p>
+                                <p class="text-2xl font-bold text-blue-800" id="current-height">1.6 meter</p>
+                                <p class="text-sm text-gray-500">dari batas aman 4.0 meter</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert Status -->
+                    <div id="status" class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Status Peringatan</h3>
+                        <div class="space-y-4">
+                            <div id="status-bendungan-div" class="flex items-center p-3 bg-gray-50 border-l-4 border-gray-500 rounded">
+                                <div id="status-bendungan-icon-div" class="p-2 bg-gray-100 rounded-full mr-3">
+                                    <i id="status-bendungan-icon" class="fas fa-water text-gray-500"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Status Bendungan</h4>
+                                    <p id="status-bendungan-text" class="text-sm text-gray-600">-</p>
+                                </div>
+                            </div>
+                            
+                            <div id="status-koneksi-div" class="flex items-center p-3 bg-gray-50 border-l-4 border-gray-500 rounded">
+                                <div id="status-koneksi-icon-div" class="p-2 bg-gray-100 rounded-full mr-3">
+                                    <i id="status-koneksi-icon" class="fas fa-wifi text-gray-500"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Koneksi Sensor</h4>
+                                    <p id="status-koneksi-text" class="text-sm text-gray-600">Mengecek...</p>
+                                </div>
+                            </div>
+                            
+                            <div id="status-notifikasi-div" class="flex items-center p-3 bg-gray-50 border-l-4 border-gray-500 rounded">
+                                <div id="status-notifikasi-icon-div" class="p-2 bg-gray-100 rounded-full mr-3">
+                                    <i id="status-notifikasi-icon" class="fas fa-bell text-gray-500"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Notifikasi</h4>
+                                    <p id="status-notifikasi-text" class="text-sm text-gray-600">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Charts & Data -->
+                <div class="md:w-2/3">
+                    <!-- Chart Card -->
+                    <div id="grafi" class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Grafik Ketinggian Permukaan Air 24 Jam Terakhir</h3>
+                            <div class="flex space-x-2">
+                                <button class="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 transition-colors duration-200">Hari</button>
+                                <button class="text-sm px-3 py-1 bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200 transition-colors duration-200">Minggu</button>
+                                <button class="text-sm px-3 py-1 bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200 transition-colors duration-200">Bulan</button>
+                            </div>
+                        </div>
+                        <div class="h-80">
+                            <canvas id="waterLevelChart" class="w-full h-64"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Data Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Weather Info -->
+                        <div class="bg-white rounded-lg shadow-md p-6 card-hover transition-all duration-300">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Cuaca Saat Ini</h3>
+                                <i class="fas fa-cloud-sun text-yellow-500 text-2xl"></i>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p id="suhuCuaca" class="text-3xl font-bold text-gray-800">-</p>
+                                    <p id="keteranganCuaca" class="text-gray-600">-</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="flex items-center justify-end text-blue-800">
+                                        <i class="fas fa-tint mr-1"></i> 
+                                        <span id="kelembabanCuaca">-</span>
+                                    </p>
+                                    <p class="flex items-center justify-end text-blue-800 mt-1">
+                                        <i class="fas fa-wind mr-1"></i>
+                                        <span id="anginCuaca">-</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Last Alert -->
+                        <div class="bg-white rounded-lg shadow-md p-6 card-hover transition-all duration-300">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Peringatan Terakhir</h3>
+                                <i class="fas fa-history text-blue-500 text-xl"></i>
+                            </div>
+                            <div>
+                                <p id="peringatan-status" class="text-gray-600">Tidak ada peringatan terdeteksi.</p>
+                                <p id="peringatan-waktu" class="text-blue-800 text-sm mt-3">-</p>
+                                <div class="mt-3">
+                                    <a href="#histori" class="text-blue-600 hover:text-blue-800 text-sm inline-flex items-center">
+                                        Lihat semua peringatan
+                                        <i class="fas fa-arrow-right ml-1 text-xs"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Device Status -->
+                        <div class="bg-white rounded-lg shadow-md p-6 card-hover transition-all duration-300">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Status Perangkat</h3>
+                                <span id="device-online-indicator" class="h-3 w-3 bg-gray-400 rounded-full"></span>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Waktu Nyala</span>
+                                    <span id="device-uptime" class="text-gray-800 font-medium">-</span>
+                                </div>
+                                <hr>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Kekuatan Sinyal</span>
+                                    <span id="signal-strength-text" class="text-gray-800 font-medium">-</span>
+                                </div>
+                                <div id="signal-bars-container" class="flex space-x-1">
+                                    <div class="h-4 w-1 bg-gray-200 rounded"></div>
+                                    <div class="h-4 w-1 bg-gray-200 rounded"></div>
+                                    <div class="h-4 w-1 bg-gray-200 rounded"></div>
+                                    <div class="h-4 w-1 bg-gray-200 rounded"></div>
+                                    <div class="h-4 w-1 bg-gray-200 rounded"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notification Settings -->
+                        <div class="bg-white rounded-lg shadow-md p-6 card-hover transition-all duration-300">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800">Notifikasi</h3>
+                                <i class="fas fa-bell text-blue-500 text-xl"></i>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Telegram</span>
+                                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <input type="checkbox" id="toggle-telegram" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer right-0 border-blue-500 "/>
+                                        <label for="toggle-telegram" class="toggle-label block overflow-hidden h-6 rounded-full bg-blue-500 cursor-pointer checked:bg-blue-500"></label>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">Email</span>
+                                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <input type="checkbox" id="toggle-email" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-blue-500"/>
+                                        <label for="toggle-email" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">SMS</span>
+                                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                        <input type="checkbox" id="toggle-sms" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-blue-500 "/>
+                                        <label for="toggle-sms" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Historical Data -->
+    <section id="histori" class="py-10 bg-gray-100">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Histori Data</h2>
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+                    <div class="flex space-x-4">
+                        <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200">Harian</button>
+                        <button class="px-4 py-2 bg-white text-blue-600 rounded hover:bg-gray-100 transition-colors duration-200">Mingguan</button>
+                        <button class="px-4 py-2 bg-white text-blue-600 rounded hover:bg-gray-100 transition-colors duration-200">Bulanan</button>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" placeholder="Cari data..." class="px-3 py-2 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button class="px-3 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ketinggian</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="histori-tabel-body" class="bg-white divide-y divide-gray-200">
+                         </tbody>    
+                    </table>
+                </div>
+                <div class="px-4 py-3 bg-white border-t border-gray-200 flex items-center justify-between">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                        <a href="#" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing
+                                <span class="font-medium">1</span>
+                                to
+                                <span class="font-medium">5</span>
+                                of
+                                <span class="font-medium">24</span>
+                                results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">1</a>
+                                <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">2</a>
+                                <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">3</a>
+                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-gray-50 text-sm font-medium text-gray-500">...</span>
+                                <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">8</a>
+                                <a href="#" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <span class="sr-only">Next</span>
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-12 bg-gradient-to-b from-blue-900 to-blue-800 text-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl font-bold mb-8 text-center">Fitur Sistem Monitoring</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-blue-800 bg-opacity-50 p-6 rounded-lg text-center card-hover transition-all duration-300">
+                    <div class="rounded-full bg-blue-700 h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-tachometer-alt text-2xl text-blue-200"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Pemantauan Real-time</h3>
+                    <p class="text-blue-100">Memantau ketinggian air secara real-time dengan update data setiap 5 menit menggunakan sensor ultrasonik HC-SR04.</p>
+                </div>
+                
+                <div class="bg-blue-800 bg-opacity-50 p-6 rounded-lg text-center card-hover transition-all duration-300">
+                    <div class="rounded-full bg-blue-700 h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-bell text-2xl text-blue-200"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Sistem Notifikasi</h3>
+                    <p class="text-blue-100">Menerima peringatan otomatis melalui Telegram, LED, LCD, dan buzzer saat ketinggian air mencapai level tertentu.</p>
+                </div>
+                
+                <div class="bg-blue-800 bg-opacity-50 p-6 rounded-lg text-center card-hover transition-all duration-300">
+                    <div class="rounded-full bg-blue-700 h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-database text-2xl text-blue-200"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Penyimpanan Data</h3>
+                    <p class="text-blue-100">Menyimpan data historis ketinggian air secara berkala menggunakan platform cloud Firebase untuk analisis jangka panjang.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Project -->
+    <section id="about" class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row gap-8 items-center">
+                <div class="md:w-1/2">
+                    <img src="lempake.jpg" alt="Bendungan Lempake" class="rounded-lg shadow-lg w-full">
+                </div>
+                <div class="md:w-1/2">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Tentang Proyek</h2>
+                    <p class="text-gray-600 mb-4">Proyek "Rancang Bangun Monitoring Ketinggian Air Berbasis IoT Untuk Peringatan Dini Banjir Di Bendungan Lempake" merupakan sistem pemantauan real-time yang bertujuan untuk meminimalisir risiko banjir di wilayah Samarinda.</p>
+                    <p class="text-gray-600 mb-4">Sistem ini menggunakan teknologi Internet of Things (IoT) dengan sensor ultrasonik HC-SR04 untuk mengukur ketinggian air secara presisi. Data dari sensor diolah oleh mikrokontroler dan dikirimkan ke server untuk dianalisis dan ditampilkan pada dashboard web.</p>
+                    <p class="text-gray-600 mb-6">Dengan adanya sistem ini, diharapkan peringatan dini banjir dapat disampaikan lebih cepat dan akurat kepada pihak terkait dan masyarakat sekitar, sehingga mitigasi bencana dapat dilakukan secara lebih efektif.</p>
+                    <div class="flex flex-wrap gap-4">
+                        <a href="#" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors duration-300">
+                            <i class="fas fa-file-alt mr-2"></i>
+                            Dokumentasi
+                        </a>
+                        <a href="#" class="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded transition-colors duration-300">
+                            <i class="fab fa-github mr-2"></i>
+                            GitHub Repository
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact / Footer -->
+    <footer class="bg-blue-900 text-white py-10">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between">
+                <div class="mb-6 md:mb-0">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <i class="fas fa-water text-2xl text-blue-300"></i>
+                        <span class="font-bold text-xl tracking-tight">AQUAMONITOR</span>
+                    </div>
+                    <p class="text-blue-200 max-w-md">Sistem pemantauan ketinggian air berbasis IoT untuk peringatan dini banjir di Bendungan Lempake, Samarinda.</p>
+                    <div class="flex space-x-4 mt-4">
+                        <a href="#" class="text-blue-300 hover:text-white transition-colors duration-200">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                        <a href="#" class="text-blue-300 hover:text-white transition-colors duration-200">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="text-blue-300 hover:text-white transition-colors duration-200">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="#" class="text-blue-300 hover:text-white transition-colors duration-200">
+                            <i class="fab fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-8 md:gap-20">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4">Navigasi</h3>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="text-blue-200 hover:text-white transition-colors duration-200">Dashboard</a></li>
+                            <li><a href="#status" class="text-blue-200 hover:text-white transition-colors duration-200">Status</a></li>
+                            <li><a href="#histori" class="text-blue-200 hover:text-white transition-colors duration-200">Histori</a></li>
+                            <li><a href="#about" class="text-blue-200 hover:text-white transition-colors duration-200">Tentang</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4">Kontak</h3>
+                        <ul class="space-y-2">
+                            <li class="flex items-center space-x-2">
+                                <i class="fas fa-map-marker-alt text-blue-300"></i>
+                                <span class="text-blue-200">Bendungan Lempake, Samarinda</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i class="fas fa-envelope text-blue-300"></i>
+                                <a href="mailto:info@aquamonitor.id" class="text-blue-200 hover:text-white transition-colors duration-200">info@aquamonitor.id</a>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i class="fas fa-phone text-blue-300"></i>
+                                <a href="tel:+628123456789" class="text-blue-200 hover:text-white transition-colors duration-200">+62 812-3456-789</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-blue-800 mt-8 pt-6 text-center md:text-left">
+                <p class="text-blue-300">&copy; 2025 AQUAMONITOR - Sistem Monitoring Ketinggian Air. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+     // Konfigurasi Firebase BARU kamu
+    const firebaseConfig = {
+        apiKey: "AIzaSyCgMFLJr2-YEE3LDa_GUi3Fp6luPjUZov4",
+        authDomain: "aquamonitor-lempake.firebaseapp.com",
+        databaseURL: "https://aquamonitor-lempake-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "aquamonitor-lempake",
+        storageBucket: "aquamonitor-lempake.firebasestorage.app",
+        messagingSenderId: "668254107727",
+        appId: "1:668254107727:web:a0fb42be326f0fb8d3923a"
+    };
+
+    // Inisialisasi Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    const grafikRef = db.ref("aquamonitor/water_levels").limitToLast(100);
+    grafikRef.on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const labels = [];
+        const tinggiData = [];
+        const tinggiMaksimumMeter = 4.0; // Tinggi total dari sensor ke dasar
+
+        // Firebase kadang tidak mengembalikan data terurut, jadi kita urutkan manual
+        const sortedKeys = Object.keys(data).sort();
+
+        sortedKeys.forEach((waktu) => {
+            // Ambil bagian jam, menit, detik dari timestamp baru (YYYY-MM-DD_HH-MM-SS)
+            labels.push(waktu.slice(11, 19)); 
+
+            // --- LOGIKA BARU UNTUK GRAFIK DIMULAI DI SINI ---
+            const jarakDariSensorCm = data[waktu].tinggi_air;
+            const jarakDariSensorMeter = jarakDariSensorCm / 100.0;
+            
+            // Hitung ketinggian air yang sebenarnya
+            let ketinggianAirMeter = tinggiMaksimumMeter - jarakDariSensorMeter;
+            if (ketinggianAirMeter < 0) ketinggianAirMeter = 0; // Pastikan tidak negatif
+
+            // Masukkan ketinggian air yang sudah benar ke data grafik
+            tinggiData.push(ketinggianAirMeter.toFixed(2));
+        });
+
+        // Update chart
+        if (window.waterLevelChart) {
+            window.waterLevelChart.data.labels = labels;
+            window.waterLevelChart.data.datasets[0].data = tinggiData;
+            window.waterLevelChart.update();
+        }
+    });
+
+    // Buat chart kosong dulu saat halaman load
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('waterLevelChart').getContext('2d');
+        window.waterLevelChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+            label: 'Ketinggian Air (meter)',
+            data: [],
+            fill: {
+                target: 'origin',
+                above: 'rgba(59, 130, 246, 0.2)'
+            },
+            borderColor: 'rgb(59, 130, 246)',
+            tension: 0.4,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                label: function(context) {
+                    return `Ketinggian: ${context.parsed.y} meter`;
+                }
+                }
+            },
+            legend: {
+                position: 'top',
+                align: 'end'
+            }
+            },
+            scales: {
+            y: {
+                beginAtZero: false,
+                min: 1.0,
+                max: 4.0,
+                ticks: {
+                stepSize: 0.5,
+                callback: function(value) {
+                    return value + ' m';
+                }
+                },
+                grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
+                }
+            },
+            x: {
+                grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
+                }
+            }
+            },
+            interaction: {
+            intersect: false,
+            mode: 'index'
+            }
+        }
+        });
+    });
+    // --- SCRIPT BARU UNTUK KARTU STATUS PERINGATAN ---
+
+// 1. Logika untuk "Status Bendungan" (menggunakan data dari /status)
+const statusBendunganRef = db.ref("aquamonitor/status");
+statusBendunganRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    const status = data.status_terakhir;
+    const div = document.getElementById("status-bendungan-div");
+    const iconDiv = document.getElementById("status-bendungan-icon-div");
+    const icon = document.getElementById("status-bendungan-icon");
+    const text = document.getElementById("status-bendungan-text");
+
+    if (status === "Aman") {
+        div.className = "flex items-center p-3 bg-green-50 border-l-4 border-green-500 rounded";
+        iconDiv.className = "p-2 bg-green-100 rounded-full mr-3";
+        icon.className = "fas fa-check text-green-500";
+        text.className = "text-sm text-green-600";
+        text.innerText = "Normal (Aman)";
+    } else if (status === "Waspada") {
+        div.className = "flex items-center p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded";
+        iconDiv.className = "p-2 bg-yellow-100 rounded-full mr-3";
+        icon.className = "fas fa-exclamation-triangle text-yellow-500";
+        text.className = "text-sm text-yellow-600";
+        text.innerText = "Waspada";
+    } else { // Ini untuk status "Bahaya"
+        div.className = "flex items-center p-3 bg-red-50 border-l-4 border-red-500 rounded";
+        iconDiv.className = "p-2 bg-red-100 rounded-full mr-3";
+        icon.className = "fas fa-times-circle text-red-500";
+        text.className = "text-sm text-red-600";
+        text.innerText = "Bahaya";
+    }
+});
+
+// 2. Logika untuk "Koneksi Sensor" (menggunakan data dari /status_perangkat)
+let connectionTimeout;
+const koneksiRef = db.ref("aquamonitor/status_perangkat");
+koneksiRef.on("value", (snapshot) => {
+    const div = document.getElementById("status-koneksi-div");
+    const iconDiv = document.getElementById("status-koneksi-icon-div");
+    const icon = document.getElementById("status-koneksi-icon");
+    const text = document.getElementById("status-koneksi-text");
+
+    // Setiap kali ada data baru, kita anggap "Terhubung"
+    div.className = "flex items-center p-3 bg-green-50 border-l-4 border-green-500 rounded";
+    iconDiv.className = "p-2 bg-green-100 rounded-full mr-3";
+    icon.className = "fas fa-wifi text-green-500";
+    text.className = "text-sm text-green-600";
+    text.innerText = "Terhubung";
+
+    // Reset timer setiap kali data masuk
+    clearTimeout(connectionTimeout);
+    connectionTimeout = setTimeout(() => {
+        // Jika tidak ada data baru selama 30 detik, anggap "Terputus"
+        div.className = "flex items-center p-3 bg-red-50 border-l-4 border-red-500 rounded";
+        iconDiv.className = "p-2 bg-red-100 rounded-full mr-3";
+        icon.className = "fas fa-wifi text-red-500"; // Ganti ikonnya
+        text.className = "text-sm text-red-600";
+        text.innerText = "Terputus";
+    }, 30000); // Timeout 30 detik
+});
+
+// 3. Logika untuk "Notifikasi" (menggunakan data dari /peringatan_terakhir)
+const notifikasiRef = db.ref("aquamonitor/peringatan_terakhir");
+notifikasiRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+    const div = document.getElementById("status-notifikasi-div");
+    const iconDiv = document.getElementById("status-notifikasi-icon-div");
+    const icon = document.getElementById("status-notifikasi-icon");
+    const text = document.getElementById("status-notifikasi-text");
+
+    if (data) {
+        div.className = "flex items-center p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded";
+        iconDiv.className = "p-2 bg-yellow-100 rounded-full mr-3";
+        icon.className = "fas fa-bell text-yellow-500"; // Ganti ikonnya
+        text.className = "text-sm text-yellow-600";
+        text.innerText = "Peringatan Terakhir: " + data.status;
+    } else {
+        div.className = "flex items-center p-3 bg-green-50 border-l-4 border-green-500 rounded";
+        iconDiv.className = "p-2 bg-green-100 rounded-full mr-3";
+        icon.className = "fas fa-bell-slash text-green-500"; // Ganti ikonnya
+        text.className = "text-sm text-green-600";
+        text.innerText = "Tidak ada peringatan";
+    }
+});
+
+    // Ambil data status real-time dari Firebase
+        // Ambil data status real-time dari Firebase
+    const statusRef = db.ref("aquamonitor/status");
+
+    statusRef.on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        // --- LOGIKA BARU DIMULAI DI SINI ---
+        const tinggiMaksimumMeter = 4.0; // Tinggi total dari sensor ke dasar dalam meter
+        const jarakDariSensorMeter = parseFloat(data.tinggi_terakhir) / 100.0; // Jarak kosong dari sensor ke air
+
+        // Hitung ketinggian air yang sebenarnya
+        let ketinggianAirMeter = tinggiMaksimumMeter - jarakDariSensorMeter;
+        if (ketinggianAirMeter < 0) ketinggianAirMeter = 0; // Pastikan tidak ada nilai negatif
+
+        const status = data.status_terakhir;
+        const waktu = data.waktu;
+        
+        // --- GUNAKAN 'ketinggianAirMeter' UNTUK SEMUA TAMPILAN ---
+        document.getElementById("current-height").innerText = ketinggianAirMeter.toFixed(2) + " meter";
+        document.getElementById("last-update").innerText = "Update Terakhir: " + waktu;
+
+        // Update persentase dan animasi air
+        const persen = Math.min((ketinggianAirMeter / tinggiMaksimumMeter) * 100, 100);
+        document.getElementById("water-percentage").innerText = Math.round(persen) + "%";
+        const waterLevel = document.getElementById("water-level");
+        waterLevel.style.height = persen + "%";
+
+        // Update status warna (ini sudah benar karena mengacu pada status dari alat)
+        const statusEl = document.getElementById("status-level");
+        statusEl.innerText = status.toUpperCase();
+
+        if (status === "Bahaya") {
+            statusEl.className = "ml-2 font-bold text-red-500";
+            waterLevel.style.background = "linear-gradient(0deg, #f87171 0%, #dc2626 100%)";
+        } else if (status === "Waspada") {
+            statusEl.className = "ml-2 font-bold text-yellow-500";
+            waterLevel.style.background = "linear-gradient(0deg, #fbbf24 0%, #d97706 100%)";
+        } else {
+            statusEl.className = "ml-2 font-bold text-green-500";
+            waterLevel.style.background = "linear-gradient(0deg, #48a3ff 0%, #0064c9 100%)";
+        }
+    });
+
+    // Mobile menu toggle
+    document.getElementById('mobile-menu-button').addEventListener('click', function() {
+        const mobileMenu = document.getElementById('mobile-menu');
+        if (mobileMenu.classList.contains('hidden')) {
+        mobileMenu.classList.remove('hidden');
+        mobileMenu.classList.add('animate__fadeIn');
+        } else {
+        mobileMenu.classList.add('hidden');
+        }
+    });
+
+
+    // --- KODE BARU UNTUK CUACA REAL-TIME ---
+
+    const apiKey = "13bf2019e43b62fb23ff9cb3e546ae30"; // Ganti jika perlu
+    const kota = "Samarinda";
+
+    // 1. Kita bungkus logika pengambilan data dalam sebuah fungsi
+    function updateWeather() {
+        fetch(`https://api.openweathermap.org/data/2.5/weather?q=${kota},id&appid=${apiKey}&units=metric`)
+            .then(res => res.json())
+            .then(data => {
+                console.log("Data cuaca berhasil diperbarui:", data); // Untuk debugging
+                const suhu = data.main.temp;
+                const kelembaban = data.main.humidity;
+                const cuaca = data.weather[0].description;
+                const angin = data.wind.speed;
+
+                // Isi ke elemen HTML
+                document.getElementById("suhuCuaca").innerText = `${Math.round(suhu)}°C`;
+                document.getElementById("keteranganCuaca").innerText = cuaca.charAt(0).toUpperCase() + cuaca.slice(1);
+                document.getElementById("kelembabanCuaca").innerText = `${kelembaban}% Kelembaban`;
+                document.getElementById("anginCuaca").innerText = `${angin} km/jam`;
+            })
+            .catch(err => console.error("Gagal ambil cuaca:", err));
+    }
+
+    // 2. Panggil fungsi ini pertama kali saat halaman dimuat
+    updateWeather();
+
+    // 3. Atur agar fungsi ini dipanggil ulang setiap 10 menit
+    // 600000 milidetik = 10 menit
+    setInterval(updateWeather, 600000);
+
+        // Listener untuk data status perangkat
+        const perangkatRef = db.ref("aquamonitor/status_perangkat");
+        perangkatRef.on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // --- Update Indikator Online ---
+            document.getElementById("device-online-indicator").className = "h-3 w-3 bg-green-500 rounded-full pulse-animation";
+
+            // --- Update Uptime ---
+            const uptimeDetik = data.uptime_detik;
+            const jam = Math.floor(uptimeDetik / 3600);
+            const sisaDetik = uptimeDetik % 3600;
+            const menit = Math.floor(sisaDetik / 60);
+            document.getElementById("device-uptime").innerText = `${jam} jam ${menit} menit`;
+
+            // --- Update Sinyal Wi-Fi ---
+            const rssi = data.sinyal_wifi;
+            const signalTextEl = document.getElementById("signal-strength-text");
+            const signalBarsContainer = document.getElementById("signal-bars-container");
+            
+            let text = "Lemah";
+            let bars = 1;
+
+            if (rssi > -60) { text = "Sangat Baik"; bars = 5; }
+            else if (rssi > -70) { text = "Baik"; bars = 4; }
+            else if (rssi > -80) { text = "Cukup"; bars = 3; }
+            else if (rssi > -90) { text = "Lemah"; bars = 2; }
+            else { text = "Sangat Lemah"; bars = 1; }
+
+            signalTextEl.innerText = text;
+            
+            // Update tampilan bar sinyal
+            let barsHTML = '';
+            for (let i = 0; i < 5; i++) {
+                if (i < bars) {
+                    barsHTML += '<div class="h-4 w-1 bg-green-500 rounded"></div>';
+                } else {
+                    barsHTML += '<div class="h-4 w-1 bg-gray-200 rounded"></div>';
+                }
+            }
+            signalBarsContainer.innerHTML = barsHTML;
+        });
+
+
+        // Listener untuk data peringatan terakhir
+        const peringatanRef = db.ref("aquamonitor/peringatan_terakhir");
+        peringatanRef.on("value", (snapshot) => {
+            const data = snapshot.val();
+            const statusEl = document.getElementById("peringatan-status");
+            const waktuEl = document.getElementById("peringatan-waktu");
+
+            if (data) {
+                statusEl.innerText = "Peringatan terakhir terdeteksi (Status " + data.status + ")";
+                waktuEl.innerText = "Waktu Kejadian: " + data.waktu;
+            } else {
+                statusEl.innerText = "Tidak ada peringatan terdeteksi.";
+                waktuEl.innerText = "-";
+            }
+        });
+
+        // Listener untuk data histori di tabel
+        // GANTI LAGI BLOK KODE LAMA DENGAN VERSI FINAL INI
+        const historiRef = db.ref("aquamonitor/water_levels").limitToLast(100);
+        historiRef.on("value", (snapshot) => {
+            const data = snapshot.val();
+            const tabelBody = document.getElementById("histori-tabel-body");
+            tabelBody.innerHTML = ''; 
+
+            if (!data) {
+                tabelBody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Tidak ada data histori</td></tr>';
+                return;
+            }
+
+            const sortedKeys = Object.keys(data).sort().reverse();
+
+            sortedKeys.forEach(key => {
+                const record = data[key];
+
+                // --- PERBAIKAN FINAL UNTUK MASALAH "INVALID DATE" ---
+                const parts = key.split('_'); // Pecah jadi ["2025-09-16", "14-07-11"]
+                const datePart = parts[0];
+                const timePart = parts[1].replace(/-/g, ':'); // Ganti "-" jadi ":" -> "14:07:11"
+                const isoString = datePart + "T" + timePart; // Gabungkan -> "2025-09-16T14:07:11"
+                const timestamp = new Date(isoString);
+                // --- AKHIR PERBAIKAN ---
+
+                const tanggal = timestamp.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Makassar' });
+                const waktu = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
+                
+                const tinggiMaksimumCm = 400;
+                const jarakDariSensorCm = record.tinggi_air;
+                const ketinggianAirCm = tinggiMaksimumCm - jarakDariSensorCm;
+                const tinggiMeter = (ketinggianAirCm / 100.0).toFixed(2);
+
+                // 2. Tentukan status berdasarkan ketinggian air yang sebenarnya
+                let statusText = "Aman";
+                let statusClass = "bg-green-100 text-green-800";
+
+                if (ketinggianAirCm > 350) { // Jika ketinggian air > 3.5m -> Bahaya
+                    statusText = "Bahaya";
+                    statusClass = "bg-red-100 text-red-800";
+                } else if (ketinggianAirCm > 250) { // Jika ketinggian air > 2.5m -> Waspada
+                    statusText = "Waspada";
+                    statusClass = "bg-yellow-100 text-yellow-800";
+                }
+
+                const barisTabel = `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${tanggal}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${waktu}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${tinggiMeter} m</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer">Detail</td>
+                    </tr>
+                `;
+                tabelBody.innerHTML += barisTabel;
+            });
+        });
+    
+    </script>
+
+</body>
+</html>
